@@ -4,7 +4,7 @@ A complete **Point of Sale** web application for a small clothing store.
 Built with pure HTML, CSS and JavaScript — no backend required.
 
 ## 🌐 Live Demo
-👉 **[Open the app](https://YOUR_USERNAME.github.io/pos-app/)**
+👉 **[Open the app](https://youssefelhilali951.github.io/pos-app/)**
 
 ## ✨ Features
 - 🛒 Barcode/manual product scanning & sales

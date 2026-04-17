@@ -1117,3 +1117,268 @@ window.showCustomerDetail = function(id) {
   document.getElementById('customer-detail-overlay').classList.remove('hidden');
   document.getElementById('customer-detail-modal').classList.remove('hidden');
 };
+
+// ═══════════════════════════════════════════════════════════════
+// ANALYTICS DASHBOARD
+// ═══════════════════════════════════════════════════════════════
+
+let dashRange = 'today';
+let salesChartMode = 'revenue';
+let salesChartInstance = null;
+
+// ── Date helpers ──────────────────────────────────────────────────
+function getDashDates() {
+  const today = new Date(); today.setHours(23,59,59,999);
+  const fmt = d => d.toISOString().slice(0,10);
+  if (dashRange === 'today') {
+    const s = new Date(); s.setHours(0,0,0,0);
+    return { from: s, to: today };
+  }
+  if (dashRange === '7') {
+    const s = new Date(); s.setDate(s.getDate()-6); s.setHours(0,0,0,0);
+    return { from: s, to: today };
+  }
+  if (dashRange === '30') {
+    const s = new Date(); s.setDate(s.getDate()-29); s.setHours(0,0,0,0);
+    return { from: s, to: today };
+  }
+  if (dashRange === 'custom') {
+    const f = document.getElementById('dash-from')?.value;
+    const t = document.getElementById('dash-to')?.value;
+    if (!f || !t) return null;
+    const s = new Date(f); s.setHours(0,0,0,0);
+    const e = new Date(t); e.setHours(23,59,59,999);
+    return { from: s, to: e };
+  }
+  return null;
+}
+
+function getPrevDates(cur) {
+  if (!cur) return null;
+  const diff = cur.to - cur.from;
+  return { from: new Date(cur.from - diff - 1), to: new Date(cur.from - 1) };
+}
+
+function filterByRange(arr, dates, dateKey = 'date') {
+  if (!dates) return arr;
+  return arr.filter(x => {
+    const d = new Date(x[dateKey]);
+    return d >= dates.from && d <= dates.to;
+  });
+}
+
+// ── Setters ───────────────────────────────────────────────────────
+function setDashRange(btn) {
+  dashRange = btn.dataset.range;
+  document.querySelectorAll('.dash-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const custom = document.getElementById('dash-custom-range');
+  custom.style.display = dashRange === 'custom' ? 'flex' : 'none';
+  if (dashRange !== 'custom') renderDashboard();
+}
+
+function switchChart(mode) {
+  salesChartMode = mode;
+  document.getElementById('chart-btn-revenue').classList.toggle('active', mode === 'revenue');
+  document.getElementById('chart-btn-count').classList.toggle('active', mode === 'count');
+  renderDashboard();
+}
+
+// ── KPI helpers ───────────────────────────────────────────────────
+function calculateRevenue(sales) { return sales.reduce((s,x) => s+x.total, 0); }
+
+function calculateProfit(sales) {
+  const products = getProducts();
+  return sales.reduce((total, sale) => {
+    return total + sale.items.reduce((s, item) => {
+      const p = products.find(x => x.id === item.id);
+      const cost = p ? (p.cost || 0) : 0;
+      return s + (item.price - cost) * item.qty;
+    }, 0);
+  }, 0);
+}
+
+function calculateAverageBasket(sales) {
+  return sales.length ? calculateRevenue(sales) / sales.length : 0;
+}
+
+function delta(cur, prev) {
+  if (!prev || prev === 0) return null;
+  return ((cur - prev) / prev) * 100;
+}
+
+function renderDelta(elId, cur, prev) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const pct = delta(cur, prev);
+  if (pct === null) { el.textContent = ''; el.className = 'stat-delta flat'; return; }
+  const sign = pct >= 0 ? '+' : '';
+  el.textContent = `${sign}${pct.toFixed(1)}% vs période préc.`;
+  el.className = 'stat-delta ' + (pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat');
+}
+
+// ── Main render ───────────────────────────────────────────────────
+window.renderDashboard = function () {
+  const dates = getDashDates();
+  if (!dates) return;
+  const prev = getPrevDates(dates);
+
+  const allSales    = getSales();
+  const allRefunds  = getRefunds();
+  const sales       = filterByRange(allSales, dates);
+  const refunds     = filterByRange(allRefunds, dates);
+  const prevSales   = prev ? filterByRange(allSales, prev) : [];
+  const prevRefunds = prev ? filterByRange(allRefunds, prev) : [];
+
+  const gross       = calculateRevenue(sales);
+  const refundTotal = refunds.reduce((s,r) => s+r.total, 0);
+  const net         = gross - refundTotal;
+  const profit      = calculateProfit(sales);
+  const basket      = calculateAverageBasket(sales);
+
+  const prevGross   = calculateRevenue(prevSales);
+  const prevNet     = prevGross - prevRefunds.reduce((s,r)=>s+r.total,0);
+  const prevProfit  = calculateProfit(prevSales);
+  const prevBasket  = calculateAverageBasket(prevSales);
+
+  document.getElementById('d-gross').textContent        = gross.toFixed(2) + ' MAD';
+  document.getElementById('d-refunds').textContent      = refundTotal.toFixed(2) + ' MAD';
+  document.getElementById('d-revenue').textContent      = net.toFixed(2) + ' MAD';
+  document.getElementById('d-profit').textContent       = profit.toFixed(2) + ' MAD';
+  document.getElementById('d-basket').textContent       = basket.toFixed(2) + ' MAD';
+  document.getElementById('d-sales').textContent        = sales.length;
+  document.getElementById('d-returns-count').textContent= refunds.length;
+
+  renderDelta('d-gross-delta',   gross,  prevGross);
+  renderDelta('d-revenue-delta', net,    prevNet);
+  renderDelta('d-profit-delta',  profit, prevProfit);
+  renderDelta('d-basket-delta',  basket, prevBasket);
+  renderDelta('d-sales-delta',   sales.length, prevSales.length);
+  renderDelta('d-refunds-delta', refundTotal, prevRefunds.reduce((s,r)=>s+r.total,0));
+
+  renderSalesChart(sales, dates);
+  renderTopProducts(sales, gross);
+  renderStockInsights();
+  renderNotSold(allSales);
+  renderRecentSales(sales);
+};
+
+// ── Sales chart ───────────────────────────────────────────────────
+function renderSalesChart(sales, dates) {
+  // Build daily buckets between from..to
+  const labels = [];
+  const values = [];
+  const d = new Date(dates.from); d.setHours(0,0,0,0);
+  const end = new Date(dates.to); end.setHours(0,0,0,0);
+
+  while (d <= end) {
+    const key = d.toISOString().slice(0,10);
+    labels.push(key.slice(5)); // MM-DD
+    const daySales = sales.filter(s => s.date.slice(0,10) === key);
+    values.push(salesChartMode === 'revenue'
+      ? daySales.reduce((s,x) => s+x.total, 0)
+      : daySales.length);
+    d.setDate(d.getDate()+1);
+  }
+
+  const ctx = document.getElementById('sales-chart').getContext('2d');
+  if (salesChartInstance) salesChartInstance.destroy();
+  salesChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: salesChartMode === 'revenue' ? 'Recette (MAD)' : 'Nb ventes',
+        data: values,
+        borderColor: '#2563eb',
+        backgroundColor: 'rgba(37,99,235,0.08)',
+        borderWidth: 2,
+        pointRadius: labels.length <= 10 ? 4 : 2,
+        fill: true,
+        tension: 0.3,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: { mode: 'index' } },
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: true, grid: { color: '#f1f5f9' } }
+      }
+    }
+  });
+}
+
+// ── Top products ──────────────────────────────────────────────────
+function renderTopProducts(sales, totalRevenue) {
+  const map = {};
+  sales.forEach(s => s.items.forEach(i => {
+    const k = i.id;
+    if (!map[k]) map[k] = { name: i.name, size: i.size, qty: 0, revenue: 0 };
+    map[k].qty += i.qty; map[k].revenue += i.price * i.qty;
+  }));
+  const top = Object.values(map).sort((a,b) => b.revenue - a.revenue).slice(0, 8);
+  document.getElementById('d-top').innerHTML = top.length
+    ? top.map(p => {
+        const pct = totalRevenue > 0 ? ((p.revenue/totalRevenue)*100).toFixed(1) : 0;
+        return `<tr>
+          <td>${p.name}</td><td><span class="badge">${p.size}</span></td>
+          <td>${p.qty}</td><td>${p.revenue.toFixed(2)} MAD</td>
+          <td><span style="background:#eff6ff;color:#2563eb;padding:2px 6px;border-radius:10px;font-size:0.75rem">${pct}%</span></td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="5" style="color:#94a3b8">Aucune vente sur cette période</td></tr>';
+}
+
+// ── Stock insights ────────────────────────────────────────────────
+function renderStockInsights() {
+  const products = getProducts();
+  const ok  = products.filter(p => p.stock > p.threshold);
+  const low = products.filter(p => p.stock > 0 && p.stock <= p.threshold);
+  const out = products.filter(p => p.stock === 0);
+
+  document.getElementById('stock-ok-count').textContent  = ok.length;
+  document.getElementById('stock-low-count').textContent = low.length;
+  document.getElementById('stock-out-count').textContent = out.length;
+
+  const critical = [...out, ...low].slice(0, 8);
+  document.getElementById('d-low').innerHTML = critical.length
+    ? critical.map(p => {
+        const badge = p.stock === 0
+          ? '<span class="badge badge-out">Rupture</span>'
+          : '<span class="badge badge-low">Faible</span>';
+        return `<tr><td>${p.name}</td><td><span class="badge">${p.size}</span></td><td>${p.stock}</td><td>${badge}</td></tr>`;
+      }).join('')
+    : '<tr><td colspan="4" style="color:#16a34a">✅ Tout est OK</td></tr>';
+}
+
+// ── Not sold in 30 days ───────────────────────────────────────────
+function renderNotSold(allSales) {
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-30);
+  const recentlySold = new Set(
+    allSales.filter(s => new Date(s.date) >= cutoff)
+      .flatMap(s => s.items.map(i => i.id))
+  );
+  const notSold = getProducts().filter(p => !recentlySold.has(p.id) && p.stock > 0);
+  document.getElementById('d-not-sold').innerHTML = notSold.length
+    ? notSold.slice(0,8).map(p => `<tr>
+        <td>${p.name}</td><td><span class="badge">${p.size}</span></td>
+        <td><span class="badge badge-low">${p.stock}</span></td><td>${p.category}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="4" style="color:#16a34a">✅ Tous les produits ont été vendus récemment</td></tr>';
+}
+
+// ── Recent sales ──────────────────────────────────────────────────
+function renderRecentSales(sales) {
+  const customers = getCustomers ? getCustomers() : [];
+  document.getElementById('d-sales-list').innerHTML = [...sales].reverse().slice(0,10).map(s => {
+    const cust = s.customerId ? customers.find(c => c.id === s.customerId) : null;
+    const custName = cust ? `${cust.firstname} ${cust.lastname}` : '—';
+    return `<tr>
+      <td>${new Date(s.date).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</td>
+      <td>${custName}</td>
+      <td><strong>${s.total.toFixed(2)} MAD</strong></td>
+      <td>${s.payment==='cash'?'💵':'💳'}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="4" style="color:#94a3b8">Aucune vente</td></tr>';
+}

@@ -202,29 +202,120 @@
 
   <!-- DASHBOARD -->
   <section id="tab-dashboard" class="tab">
-    <div class="stats-row">
-      <div class="stat-card"><div class="stat-label">Ventes brutes</div><div class="stat-val" id="d-gross">0.00 MAD</div></div>
-      <div class="stat-card" style="border:2px solid #fee2e2"><div class="stat-label">Remboursements</div><div class="stat-val" style="color:#dc2626" id="d-refunds">0.00 MAD</div></div>
-      <div class="stat-card" style="border:2px solid #bbf7d0"><div class="stat-label">Recette nette</div><div class="stat-val" style="color:#16a34a" id="d-revenue">0.00 MAD</div></div>
-      <div class="stat-card"><div class="stat-label">Nb ventes</div><div class="stat-val" id="d-sales">0</div></div>
-      <div class="stat-card"><div class="stat-label">Nb retours</div><div class="stat-val" style="color:#dc2626" id="d-returns-count">0</div></div>
+
+    <!-- TIME FILTER -->
+    <div class="dash-filter-bar">
+      <button class="dash-filter-btn active" data-range="today" onclick="setDashRange(this)">Aujourd'hui</button>
+      <button class="dash-filter-btn" data-range="7" onclick="setDashRange(this)">7 jours</button>
+      <button class="dash-filter-btn" data-range="30" onclick="setDashRange(this)">30 jours</button>
+      <button class="dash-filter-btn" data-range="custom" onclick="setDashRange(this)">Personnalisé</button>
+      <div id="dash-custom-range" style="display:none;align-items:center;gap:8px">
+        <input type="date" id="dash-from" onchange="renderDashboard()"/>
+        <span style="color:#64748b">→</span>
+        <input type="date" id="dash-to" onchange="renderDashboard()"/>
+      </div>
     </div>
+
+    <!-- KPI ROW -->
+    <div class="stats-row" style="margin-bottom:16px">
+      <div class="stat-card">
+        <div class="stat-label">Ventes brutes</div>
+        <div class="stat-val" id="d-gross">0.00 MAD</div>
+        <div class="stat-delta" id="d-gross-delta"></div>
+      </div>
+      <div class="stat-card" style="border:2px solid #fee2e2">
+        <div class="stat-label">Remboursements</div>
+        <div class="stat-val" style="color:#dc2626" id="d-refunds">0.00 MAD</div>
+        <div class="stat-delta" id="d-refunds-delta"></div>
+      </div>
+      <div class="stat-card" style="border:2px solid #bbf7d0">
+        <div class="stat-label">Recette nette</div>
+        <div class="stat-val" style="color:#16a34a" id="d-revenue">0.00 MAD</div>
+        <div class="stat-delta" id="d-revenue-delta"></div>
+      </div>
+      <div class="stat-card" style="border:2px solid #e0f2fe">
+        <div class="stat-label">Profit estimé</div>
+        <div class="stat-val" style="color:#0891b2" id="d-profit">0.00 MAD</div>
+        <div class="stat-delta" id="d-profit-delta"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Panier moyen</div>
+        <div class="stat-val" id="d-basket">0.00 MAD</div>
+        <div class="stat-delta" id="d-basket-delta"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Nb ventes</div>
+        <div class="stat-val" id="d-sales">0</div>
+        <div class="stat-delta" id="d-sales-delta"></div>
+      </div>
+      <div class="stat-card" style="border:2px solid #fee2e2">
+        <div class="stat-label">Nb retours</div>
+        <div class="stat-val" style="color:#dc2626" id="d-returns-count">0</div>
+      </div>
+    </div>
+
+    <!-- CHART -->
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3>📈 Évolution des ventes</h3>
+        <div style="display:flex;gap:6px">
+          <button class="cat-btn active" id="chart-btn-revenue" onclick="switchChart('revenue')">Recette</button>
+          <button class="cat-btn" id="chart-btn-count" onclick="switchChart('count')">Nb ventes</button>
+        </div>
+      </div>
+      <canvas id="sales-chart" height="80"></canvas>
+    </div>
+
     <div class="dash-grid">
+      <!-- TOP PRODUCTS -->
       <div class="card">
-        <h3>🏆 Top produits aujourd'hui</h3>
-        <table><thead><tr><th>Produit</th><th>Taille</th><th>Qté</th><th>Recette</th></tr></thead>
-        <tbody id="d-top"></tbody></table>
+        <h3>🏆 Top produits</h3>
+        <table>
+          <thead><tr><th>Produit</th><th>Taille</th><th>Qté</th><th>Recette</th><th>%</th></tr></thead>
+          <tbody id="d-top"></tbody>
+        </table>
       </div>
+
+      <!-- STOCK INSIGHTS -->
       <div class="card">
-        <h3>⚠️ Stock faible / épuisé</h3>
-        <table><thead><tr><th>Produit</th><th>Taille</th><th>Stock</th><th>Seuil</th></tr></thead>
-        <tbody id="d-low"></tbody></table>
+        <h3>📦 Insights stock</h3>
+        <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+          <div style="flex:1;min-width:80px;text-align:center;padding:10px;background:#dcfce7;border-radius:8px">
+            <div style="font-size:1.4rem;font-weight:700;color:#16a34a" id="stock-ok-count">0</div>
+            <div style="font-size:0.75rem;color:#15803d">✅ OK</div>
+          </div>
+          <div style="flex:1;min-width:80px;text-align:center;padding:10px;background:#fef9c3;border-radius:8px">
+            <div style="font-size:1.4rem;font-weight:700;color:#a16207" id="stock-low-count">0</div>
+            <div style="font-size:0.75rem;color:#a16207">⚠️ Faible</div>
+          </div>
+          <div style="flex:1;min-width:80px;text-align:center;padding:10px;background:#fee2e2;border-radius:8px">
+            <div style="font-size:1.4rem;font-weight:700;color:#dc2626" id="stock-out-count">0</div>
+            <div style="font-size:0.75rem;color:#dc2626">🔴 Rupture</div>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>Produit</th><th>Taille</th><th>Stock</th><th>Statut</th></tr></thead>
+          <tbody id="d-low"></tbody>
+        </table>
       </div>
     </div>
-    <div class="card" style="margin-top:16px">
-      <h3>📋 Dernières ventes</h3>
-      <table><thead><tr><th>Heure</th><th>Articles</th><th>Total</th><th>Paiement</th></tr></thead>
-      <tbody id="d-sales-list"></tbody></table>
+
+    <!-- NOT SOLD + RECENT SALES -->
+    <div class="dash-grid" style="margin-top:16px">
+      <div class="card">
+        <h3>😴 Produits non vendus (30j)</h3>
+        <table>
+          <thead><tr><th>Produit</th><th>Taille</th><th>Stock</th><th>Catégorie</th></tr></thead>
+          <tbody id="d-not-sold"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h3>📋 Dernières ventes</h3>
+        <table>
+          <thead><tr><th>Heure</th><th>Client</th><th>Total</th><th>Paiement</th></tr></thead>
+          <tbody id="d-sales-list"></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
@@ -451,6 +542,7 @@
     </main>
   </div><!-- /.app-layout -->
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
