@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>POS — Magasin Vêtements</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <div id="demo-banner" style="background:#7c3aed;color:#fff;text-align:center;padding:6px;font-size:0.82rem;font-weight:600;letter-spacing:0.03em">
+    🧪 MODE DÉMO — Données d'exemple préchargées. Toutes les modifications sont sauvegardées localement dans votre navigateur.
+    <button onclick="this.parentElement.style.display='none'" style="background:none;border:none;color:#fff;cursor:pointer;margin-left:12px;opacity:0.7">✕</button>
+  </div>
+  <div class="app-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">👗 POS Magasin</div>
+      <nav class="sidebar-nav">
+        <button class="tab-btn active" data-tab="pos">🛒 Vente</button>
+        <button class="tab-btn" data-tab="returns">↩️ Retours</button>
+        <button class="tab-btn" data-tab="products">📦 Produits</button>
+        <button class="tab-btn" data-tab="dashboard">📊 Dashboard</button>
+        <button class="tab-btn" data-tab="rapports">📥 Rapports</button>
+        <button class="tab-btn" data-tab="crm">👥 Clients</button>
+        <button class="tab-btn" data-tab="feedback">💬 Avis</button>
+      </nav>
+      <div class="sidebar-clock" id="clock"></div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+  <!-- POS -->
+  <section id="tab-pos" class="tab active">
+    <div class="pos-layout">
+      <div class="pos-left">
+        <div class="scan-box">
+          <label>Scanner / Code-barres</label>
+          <div class="scan-row">
+            <input id="barcode-input" type="text" placeholder="Scanner ou saisir le code..." autofocus autocomplete="off"/>
+            <button onclick="scanBarcode()">↵</button>
+          </div>
+          <div id="scan-result"></div>
+        </div>
+
+        <div id="product-found" class="product-card hidden">
+          <div class="product-info">
+            <span id="pf-name"></span>
+            <span id="pf-size" class="badge"></span>
+          </div>
+          <div class="product-meta">
+            <span>Prix: <strong id="pf-price"></strong></span>
+            <span>Stock: <strong id="pf-stock"></strong></span>
+          </div>
+          <div class="qty-row">
+            <input id="pf-qty" type="number" value="1" min="1"/>
+            <button onclick="addToCart()">+ Ajouter au panier</button>
+          </div>
+        </div>
+
+        <div class="payment-box">
+          <label>Paiement</label>
+          <div class="pay-btns">
+            <button class="pay-btn active" data-method="cash" onclick="selectPay(this)">💵 Espèces</button>
+            <button class="pay-btn" data-method="card" onclick="selectPay(this)">💳 Carte</button>
+          </div>
+        </div>
+
+        <div class="scan-box">
+          <label>👤 Client (optionnel)</label>
+          <div class="scan-row">
+            <input id="pos-customer-search" type="text" placeholder="Rechercher par téléphone ou nom..." oninput="searchPosCustomer()"/>
+            <button onclick="clearPosCustomer()" title="Effacer">✕</button>
+          </div>
+          <div id="pos-customer-results" style="max-height:120px;overflow-y:auto;margin-top:6px"></div>
+          <div id="pos-customer-selected" class="hidden" style="margin-top:8px;padding:10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;font-size:0.85rem"></div>
+        </div>
+      </div>
+
+      <div class="pos-right">
+        <div class="cart-header">
+          <h2>🛒 Panier</h2>
+          <button class="btn-sm danger" onclick="clearCart()">Vider</button>
+        </div>
+        <div class="cart-scroll">
+          <table id="cart-table">
+            <thead><tr><th>Produit</th><th>Taille</th><th>Qté</th><th>Total</th><th></th></tr></thead>
+            <tbody id="cart-body"></tbody>
+          </table>
+        </div>
+        <div class="cart-total">
+          <span>TOTAL</span>
+          <span id="cart-total-val">0.00 MAD</span>
+        </div>
+        <button id="btn-checkout" onclick="checkout()" disabled>✅ Valider la vente</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- RETURNS -->
+  <section id="tab-returns" class="tab">
+    <div class="pos-layout">
+      <div class="pos-left">
+        <div class="scan-box">
+          <label>Scanner / Code-barres produit</label>
+          <div class="scan-row">
+            <input id="ret-barcode" type="text" placeholder="Scanner ou saisir le code..." autocomplete="off"/>
+            <button onclick="scanReturn()">↵</button>
+          </div>
+          <div id="ret-scan-result"></div>
+        </div>
+
+        <div id="ret-product-found" class="product-card hidden">
+          <div class="product-info">
+            <span id="ret-pf-name"></span>
+            <span id="ret-pf-size" class="badge"></span>
+          </div>
+          <div class="product-meta">
+            <span>Prix: <strong id="ret-pf-price"></strong></span>
+            <span>Stock actuel: <strong id="ret-pf-stock"></strong></span>
+          </div>
+          <div class="qty-row">
+            <input id="ret-qty" type="number" value="1" min="1"/>
+            <button onclick="addReturnItem()">+ Ajouter au retour</button>
+          </div>
+        </div>
+
+        <div class="scan-box">
+          <label>Vente originale (optionnel)</label>
+          <input id="ret-sale-search" type="text" placeholder="Rechercher par date ou produit..."
+            oninput="searchOriginalSales()" style="width:100%;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px"/>
+          <div id="ret-sale-list" style="max-height:160px;overflow-y:auto"></div>
+          <div id="ret-selected-sale" class="hidden" style="margin-top:8px;padding:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;font-size:0.85rem"></div>
+        </div>
+
+        <div class="scan-box">
+          <label>Motif du retour</label>
+          <select id="ret-reason" style="width:100%;padding:9px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px">
+            <option value="">-- Sélectionner --</option>
+            <option>Défaut / Article endommagé</option>
+            <option>Mauvaise taille</option>
+            <option>Ne convient pas</option>
+            <option>Erreur de caisse</option>
+            <option>Autre</option>
+          </select>
+          <textarea id="ret-notes" placeholder="Notes (optionnel)..." rows="2"
+            style="width:100%;padding:9px;border:1px solid #e2e8f0;border-radius:8px;resize:none;font-family:inherit;font-size:0.9rem"></textarea>
+        </div>
+
+        <div class="payment-box">
+          <label>Mode de remboursement</label>
+          <div class="pay-btns">
+            <button class="pay-btn active" data-method="cash" onclick="selectRefundMethod(this)">💵 Espèces</button>
+            <button class="pay-btn" data-method="card" onclick="selectRefundMethod(this)">💳 Carte</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="pos-right">
+        <div class="cart-header">
+          <h2>↩️ Articles à retourner</h2>
+          <button class="btn-sm danger" onclick="clearReturn()">Vider</button>
+        </div>
+        <div class="cart-scroll">
+          <table>
+            <thead><tr><th>Produit</th><th>Taille</th><th>Qté</th><th>Remboursement</th><th></th></tr></thead>
+            <tbody id="ret-body"></tbody>
+          </table>
+        </div>
+        <div class="cart-total">
+          <span>TOTAL REMBOURSÉ</span>
+          <span id="ret-total-val">0.00 MAD</span>
+        </div>
+        <button id="btn-confirm-return" onclick="confirmReturn()" disabled>↩️ Confirmer le retour</button>
+
+        <div style="margin-top:20px">
+          <h3 style="font-size:0.9rem;color:#64748b;margin-bottom:10px">📋 Historique des retours</h3>
+          <div style="max-height:200px;overflow-y:auto">
+            <table><thead><tr><th>Date</th><th>Produit</th><th>Montant</th><th>Mode</th></tr></thead>
+            <tbody id="ret-history"></tbody></table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRODUCTS -->
+  <section id="tab-products" class="tab">
+    <div class="toolbar">
+      <input id="search-products" type="text" placeholder="🔍 Rechercher..." oninput="renderProducts()"/>
+      <button onclick="openModal()">+ Nouveau produit</button>
+      <button onclick="exportProductsCSV()" class="btn-export">⬇️ Export Produits</button>
+    </div>
+    <div id="category-filters" class="cat-filters"></div>
+    <table>
+      <thead><tr><th>SKU</th><th>Nom</th><th>Catégorie</th><th>Taille</th><th>Prix (MAD)</th><th>Stock (qté)</th><th>Valeur stock (MAD)</th><th>Actions</th></tr></thead>
+      <tbody id="products-body"></tbody>
+      <tfoot><tr><td colspan="6" style="text-align:right;font-weight:600;padding:10px 12px;background:#f8fafc">Total valeur stock :</td><td id="total-stock-val" style="font-weight:700;padding:10px 12px;background:#f8fafc;color:#2563eb">0.00 MAD</td><td style="background:#f8fafc"></td></tr></tfoot>
+    </table>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section id="tab-dashboard" class="tab">
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-label">Ventes brutes</div><div class="stat-val" id="d-gross">0.00 MAD</div></div>
+      <div class="stat-card" style="border:2px solid #fee2e2"><div class="stat-label">Remboursements</div><div class="stat-val" style="color:#dc2626" id="d-refunds">0.00 MAD</div></div>
+      <div class="stat-card" style="border:2px solid #bbf7d0"><div class="stat-label">Recette nette</div><div class="stat-val" style="color:#16a34a" id="d-revenue">0.00 MAD</div></div>
+      <div class="stat-card"><div class="stat-label">Nb ventes</div><div class="stat-val" id="d-sales">0</div></div>
+      <div class="stat-card"><div class="stat-label">Nb retours</div><div class="stat-val" style="color:#dc2626" id="d-returns-count">0</div></div>
+    </div>
+    <div class="dash-grid">
+      <div class="card">
+        <h3>🏆 Top produits aujourd'hui</h3>
+        <table><thead><tr><th>Produit</th><th>Taille</th><th>Qté</th><th>Recette</th></tr></thead>
+        <tbody id="d-top"></tbody></table>
+      </div>
+      <div class="card">
+        <h3>⚠️ Stock faible / épuisé</h3>
+        <table><thead><tr><th>Produit</th><th>Taille</th><th>Stock</th><th>Seuil</th></tr></thead>
+        <tbody id="d-low"></tbody></table>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h3>📋 Dernières ventes</h3>
+      <table><thead><tr><th>Heure</th><th>Articles</th><th>Total</th><th>Paiement</th></tr></thead>
+      <tbody id="d-sales-list"></tbody></table>
+    </div>
+  </section>
+
+  <!-- RAPPORTS -->
+  <section id="tab-rapports" class="tab">
+    <div class="card" style="max-width:560px">
+      <h2 style="margin-bottom:20px">📥 Télécharger un rapport de ventes</h2>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="form-group">
+          <label>Date de début</label>
+          <input type="date" id="export-from"/>
+        </div>
+        <div class="form-group">
+          <label>Date de fin</label>
+          <input type="date" id="export-to"/>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <button class="cat-btn" onclick="setExportRange('today')">Aujourd'hui</button>
+        <button class="cat-btn" onclick="setExportRange('week')">Cette semaine</button>
+        <button class="cat-btn" onclick="setExportRange('month')">Ce mois</button>
+        <button class="cat-btn" onclick="setExportRange('all')">Tout</button>
+      </div>
+      <div id="export-preview" style="margin-top:14px;font-size:0.9rem;color:#64748b;padding:12px;background:#f8fafc;border-radius:6px;min-height:40px"></div>
+      <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+        <button class="primary" style="padding:12px 24px;font-size:1rem" onclick="exportCSV()">⬇️ Télécharger CSV ventes</button>
+        <button style="padding:12px 24px;font-size:1rem;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer" onclick="exportRefundsCSV()">⬇️ Télécharger CSV retours</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- MODAL PRODUIT -->
+  <div id="modal-overlay" class="hidden" onclick="closeModal()"></div>
+  <div id="modal" class="hidden">
+    <h2 id="modal-title">Nouveau produit</h2>
+    <input type="hidden" id="m-id"/>
+    <div class="form-grid">
+      <div class="form-group"><label>SKU *</label><input id="m-sku" placeholder="TSHIRT-NOIR-M"/></div>
+      <div class="form-group"><label>Code-barres *</label><input id="m-barcode" placeholder="1234567890123"/></div>
+      <div class="form-group"><label>Nom *</label><input id="m-name" placeholder="T-Shirt Noir"/></div>
+      <div class="form-group"><label>Catégorie</label><input id="m-category" placeholder="T-Shirts"/></div>
+      <div class="form-group">
+        <label>Taille</label>
+        <select id="m-size">
+          <option>XS</option><option>S</option><option selected>M</option>
+          <option>L</option><option>XL</option><option>XXL</option><option>Unique</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Prix vente (MAD) *</label><input id="m-price" type="number" min="0" step="0.01"/></div>
+      <div class="form-group"><label>Prix achat (MAD)</label><input id="m-cost" type="number" min="0" step="0.01" value="0"/></div>
+      <div class="form-group"><label>Stock initial</label><input id="m-stock" type="number" min="0" value="0"/></div>
+      <div class="form-group"><label>Seuil alerte</label><input id="m-threshold" type="number" min="0" value="5"/></div>
+    </div>
+    <div class="modal-actions">
+      <button onclick="closeModal()">Annuler</button>
+      <button class="primary" onclick="saveProduct()">Enregistrer</button>
+    </div>
+  </div>
+
+  <!-- MODAL TICKET -->
+  <div id="receipt-overlay" class="hidden"></div>
+  <div id="receipt-modal" class="hidden">
+    <div id="receipt-content"></div>
+    <div class="modal-actions no-print">
+      <button onclick="closeReceipt()">Fermer</button>
+      <button class="primary" onclick="window.print()">🖨️ Imprimer</button>
+    </div>
+  </div>
+
+  <!-- CRM -->
+  <section id="tab-crm" class="tab">
+    <div class="toolbar">
+      <input id="crm-search" type="text" placeholder="🔍 Rechercher par nom ou téléphone..." oninput="renderCustomers()"/>
+      <select id="crm-segment" onchange="renderCustomers()" style="padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:0.9rem">
+        <option value="all">Tous les clients</option>
+        <option value="vip">⭐ VIP (>1000 MAD)</option>
+        <option value="frequent">🔄 Fréquents (>3 achats)</option>
+        <option value="inactive">😴 Inactifs (>30 jours)</option>
+        <option value="points">🎁 Avec points</option>
+      </select>
+      <button onclick="openCustomerModal()">+ Nouveau client</button>
+      <button onclick="exportCustomersCSV()" class="btn-export">⬇️ Export</button>
+    </div>
+    <table>
+      <thead><tr><th>Nom</th><th>Téléphone</th><th>Email</th><th>Total dépensé</th><th>Points</th><th>Dernier achat</th><th>Tag</th><th>Actions</th></tr></thead>
+      <tbody id="crm-body"></tbody>
+    </table>
+  </section>
+
+  <!-- FEEDBACK -->
+  <section id="tab-feedback" class="tab">
+    <div style="display:grid;grid-template-columns:380px 1fr;gap:16px;align-items:start">
+      <div class="card">
+        <h2 style="margin-bottom:16px">💬 Laisser un avis</h2>
+        <div class="form-group" style="margin-bottom:10px"><label>Nom</label><input id="fb-name" placeholder="Votre nom (optionnel)"/></div>
+        <div class="form-group" style="margin-bottom:10px"><label>Téléphone</label><input id="fb-phone" placeholder="06..." oninput="linkFeedbackCustomer()"/></div>
+        <div class="form-group" style="margin-bottom:10px">
+          <label>Note</label>
+          <div id="fb-stars" style="display:flex;gap:8px;margin-top:4px">
+            <button class="star-btn" data-val="1" onclick="setRating(1)">★</button>
+            <button class="star-btn" data-val="2" onclick="setRating(2)">★</button>
+            <button class="star-btn" data-val="3" onclick="setRating(3)">★</button>
+            <button class="star-btn" data-val="4" onclick="setRating(4)">★</button>
+            <button class="star-btn" data-val="5" onclick="setRating(5)">★</button>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:10px">
+          <label>Catégorie</label>
+          <select id="fb-category" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px">
+            <option value="product">Produit</option>
+            <option value="service">Service</option>
+            <option value="price">Prix</option>
+            <option value="other">Autre</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:16px"><label>Message</label>
+          <textarea id="fb-message" rows="3" placeholder="Votre message..." style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;resize:none;font-family:inherit"></textarea>
+        </div>
+        <button class="primary" style="width:100%;padding:12px" onclick="submitFeedback()">Envoyer l'avis</button>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h2>📋 Avis reçus</h2>
+          <button onclick="exportFeedbackCSV()" class="btn-export" style="font-size:0.8rem;padding:6px 12px">⬇️ Export</button>
+        </div>
+        <div id="feedback-stats" style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap"></div>
+        <div id="feedback-list" style="max-height:500px;overflow-y:auto"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MODAL CLIENT -->
+  <div id="customer-overlay" class="hidden" onclick="closeCustomerModal()"></div>
+  <div id="customer-modal" class="hidden">
+    <h2 id="customer-modal-title">Nouveau client</h2>
+    <input type="hidden" id="cm-id"/>
+    <div class="form-grid">
+      <div class="form-group"><label>Prénom *</label><input id="cm-firstname" placeholder="Prénom"/></div>
+      <div class="form-group"><label>Nom *</label><input id="cm-lastname" placeholder="Nom"/></div>
+      <div class="form-group"><label>Téléphone *</label><input id="cm-phone" placeholder="06..."/></div>
+      <div class="form-group"><label>Email</label><input id="cm-email" placeholder="email@..."/></div>
+      <div class="form-group"><label>Anniversaire</label><input id="cm-birthday" type="date"/></div>
+      <div class="form-group">
+        <label>Tag</label>
+        <select id="cm-tag">
+          <option value="">Aucun</option>
+          <option value="VIP">⭐ VIP</option>
+          <option value="Grossiste">📦 Grossiste</option>
+          <option value="Fidèle">🔄 Fidèle</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px"><label>Notes</label>
+      <textarea id="cm-notes" rows="2" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;resize:none;font-family:inherit"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button onclick="closeCustomerModal()">Annuler</button>
+      <button class="primary" onclick="saveCustomer()">Enregistrer</button>
+    </div>
+  </div>
+
+  <!-- MODAL DETAIL CLIENT -->
+  <div id="customer-detail-overlay" class="hidden" onclick="closeCustomerDetail()"></div>
+  <div id="customer-detail-modal" class="hidden" style="width:680px">
+    <div id="customer-detail-content"></div>
+    <div class="modal-actions">
+      <button onclick="closeCustomerDetail()">Fermer</button>
+    </div>
+  </div>
+
+  <!-- MODAL COMMUNICATION -->
+  <div id="comm-overlay" class="hidden" onclick="closeCommModal()"></div>
+  <div id="comm-modal" class="hidden">
+    <h2 id="comm-title">📨 Envoyer un message</h2>
+    <input type="hidden" id="comm-type"/>
+    <input type="hidden" id="comm-customer-id"/>
+
+    <div style="margin-bottom:12px">
+      <label style="font-size:0.78rem;color:#64748b;font-weight:600;display:block;margin-bottom:6px">TEMPLATES RAPIDES</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="cat-btn" onclick="applyTemplate('promo')">🎉 Promotion</button>
+        <button class="cat-btn" onclick="applyTemplate('new')">🆕 Nouveau produit</button>
+        <button class="cat-btn" onclick="applyTemplate('loyalty')">🎁 Fidélité</button>
+        <button class="cat-btn" onclick="applyTemplate('thanks')">🙏 Remerciement</button>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-bottom:12px">
+      <label>Destinataire</label>
+      <input id="comm-recipient" readonly style="background:#f8fafc;color:#64748b"/>
+    </div>
+
+    <div id="comm-subject-wrap" class="form-group" style="margin-bottom:12px">
+      <label>Sujet (Email)</label>
+      <input id="comm-subject" placeholder="Sujet de l'email..."/>
+    </div>
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label>Message</label>
+      <textarea id="comm-message" rows="5"
+        style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;resize:vertical;font-family:inherit;font-size:0.9rem;line-height:1.5"></textarea>
+      <div style="font-size:0.75rem;color:#94a3b8;margin-top:4px">Astuce : {nom} sera remplacé par le prénom du client</div>
+    </div>
+
+    <div class="modal-actions">
+      <button onclick="closeCommModal()">Annuler</button>
+      <button class="primary" id="comm-send-btn" onclick="sendComm()">Envoyer</button>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" style="position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:8px;font-size:0.9rem;font-weight:600;z-index:999;display:none;max-width:320px"></div>
+
+  <!-- MODAL TICKET RETOUR -->
+  <div id="ret-receipt-overlay" class="hidden"></div>
+  <div id="ret-receipt-modal" class="hidden">
+    <div id="ret-receipt-content"></div>
+    <div class="modal-actions no-print">
+      <button onclick="closeReturnReceipt()">Fermer</button>
+      <button class="primary" onclick="window.print()">🖨️ Imprimer</button>
+    </div>
+  </div>
+
+    </main>
+  </div><!-- /.app-layout -->
+
+  <script src="app.js"></script>
+</body>
+</html>
